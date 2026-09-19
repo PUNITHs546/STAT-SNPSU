@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SNPSU Design Thinking Project</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:linear-gradient(135deg,#07152f,#182c63 45%,#4b1f58);color:#fff;min-height:100vh}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}.screen{min-height:100vh;padding:25px}.card{background:#ffffff12;border:1px solid #ffffff20;border-radius:25px;box-shadow:0 20px 70px #0007;backdrop-filter:blur(15px)}.center{display:grid;place-items:center;min-height:100vh}.welcome{max-width:850px;padding:55px;text-align:center}.logo{font-size:70px}.title{font-size:clamp(34px,7vw,70px);font-weight:900;line-height:1;background:linear-gradient(90deg,#6ee7ff,#fff,#ff78c8);-webkit-background-clip:text;color:transparent}.muted{color:#b9c9e7}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:800;background:linear-gradient(90deg,#6ee7ff,#bff7ff);color:#07152f}.btn.pink{background:linear-gradient(90deg,#a78bfa,#ff78c8);color:white}.btn.dark{background:#ffffff12;color:#fff;border:1px solid #ffffff25}.btn.red{background:#ff637d;color:white}.wrap{max-width:1200px;margin:auto}.top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:25px}.brand{font-weight:900;font-size:20px}.search{flex:1;min-width:220px}.input{width:100%;padding:13px;border-radius:13px;background:#06142e;color:#fff;border:1px solid #ffffff20;outline:none}.field{margin:13px 0}.field label{display:block;color:#b9c9e7;font-size:13px;margin-bottom:7px}.authbox{max-width:700px;width:100%;padding:35px}.grid{display:grid;gap:16px}.two{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:17px}.stat{padding:24px;cursor:pointer}.stat b{font-size:45px;display:block}.stat span,.stat small{color:#b9c9e7}.section{padding:25px;margin-top:18px}.list{display:grid;gap:10px}.item{padding:15px;background:#ffffff0a;border:1px solid #ffffff14;border-radius:16px}.pill{padding:5px 9px;background:#ffffff12;border-radius:99px;font-size:12px}.modal{position:fixed;inset:0;background:#000b;z-index:20;display:grid;place-items:center;padding:20px}.modalbox{max-width:750px;width:100%;max-height:90vh;overflow:auto;padding:28px}.drawer{position:fixed;right:0;top:0;height:100vh;width:min(600px,100%);background:#071631f5;z-index:30;display:flex;flex-direction:column;border-left:1px solid #ffffff22;box-shadow:-20px 0 70px #0008}.drawerhead{padding:18px;border-bottom:1px solid #ffffff18}.chatbody{display:grid;grid-template-columns:175px 1fr;min-height:0;flex:1}.chatlist{padding:10px;overflow:auto;border-right:1px solid #ffffff14}.chatview{display:flex;flex-direction:column;min-width:0}.messages{flex:1;overflow:auto;padding:18px}.bubble{max-width:80%;padding:11px 14px;border-radius:17px;background:#ffffff10;margin:8px 0}.mine{margin-left:auto;background:linear-gradient(90deg,#6547ba,#a04e91)}.compose{display:flex;gap:8px;padding:12px;border-top:1px solid #ffffff18}.compose input{flex:1}.qrbox{background:#fff;padding:16px;border-radius:20px;display:inline-block}.camera{width:100%;max-height:350px;background:#000;border-radius:16px}@media(max-width:700px){.stats{grid-template-columns:1fr}.chatbody{grid-template-columns:1fr}.chatlist{max-height:180px;border-right:0;border-bottom:1px solid #ffffff14}}
+.userBtn{display:inline-flex;align-items:center;gap:8px}.avatarMini,.avatarBig{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:800;letter-spacing:.5px;background:linear-gradient(135deg,#5b5cf0,#16c7d9);color:#fff;box-shadow:0 4px 14px rgba(30,80,180,.25)}.avatarMini{width:28px;height:28px;font-size:12px}.avatarBig{width:76px;height:76px;font-size:28px;flex:none}.profileHead{display:flex;align-items:center;gap:16px;margin-bottom:18px}.profileHead h2{margin:0 0 4px}.profileHead p{margin:0}</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="modal hidden" style="background:transparent;place-items:end center;padding-bottom:25px"><div class="card" style="padding:12px 18px" id="toastText"></div></div>
+
+<script>
+/* ============================================================
+   SNPSU MERGED FREE VERSION
+   Runs directly in a browser. No Node.js required.
+   Data is stored locally in this browser using localStorage.
+   ============================================================ */
+
+const KEY="SNPSU_MERGED_FREE_V1";
+const state={
+ user:null,
+ chatOpen:false,
+ activeFriend:null,
+ camera:null,
+ scanTimer:null
+};
+
+const seed=[
+ {name:"ANDREW V",serial:"1CSE01",role:"STUDENT",year:"1"},
+ {name:"PUNITH S",serial:"1CSE02",role:"STUDENT",year:"1"},
+ {name:"RAHUL",serial:"1CSE03",role:"STUDENT",year:"1"},
+ {name:"RAM",serial:"1CSE04",role:"STUDENT",year:"1"},
+ {name:"RANJAN",serial:"1CSE05",role:"STUDENT",year:"1"}
+];
+
+function db(){
+ let x=localStorage.getItem(KEY);
+ if(!x){
+  x={users:seed.map((u,i)=>({...u,id:i+1,dob:"",password:null,chatPin:null,qrToken:crypto.randomUUID?.()||Math.random().toString(36).slice(2),projects:[]})),
+     messages:[],attendance:[],current:null};
+  save(x);
+ }
+ return JSON.parse(localStorage.getItem(KEY));
+}
+function save(x){localStorage.setItem(KEY,JSON.stringify(x))}
+function esc(x){return String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function toast(t){$("toastText").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2200)}
+function $(id){return document.getElementById(id)}
+function getUser(){let d=db();return d.users.find(u=>u.id===d.current)}
+function initials(name){return String(name||"").trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0].toUpperCase()).join("")||"U"}
+function setCurrent(id){let d=db();d.current=id;save(d);state.user=d.users.find(u=>u.id===id)}
+function passwordOK(p){return /[a-z]/.test(p)&&/[0-9]/.test(p)&&/[^A-Za-z0-9]/.test(p)}
+function pinOK(p){return /^[0-9]{4}$/.test(p)}
+function recordAttendance(method,userId){
+ let d=db();d.attendance.push({userId,method,time:new Date().toLocaleString()});save(d)
+}
+
+function welcome(){
+ $("app").innerHTML=`<div class="center screen"><div class="card welcome">
+ <div class="logo">🎓✨</div>
+ <div class="title">WELCOME TO SNPSU<br>DESIGN THINKING PROJECT</div>
+ <p class="muted">Projects • Attendance • QR • Private Messages</p>
+ <button class="btn" onclick="auth()">CONTINUE →</button>
+ </div></div>`
+}
+function auth(){
+ $("app").innerHTML=`<div class="center screen"><div class="card authbox">
+ <h1>Choose how to continue</h1>
+ <div class="grid two">
+ <button class="btn" onclick="loginPage()">🔐 HAVE AN ACCOUNT</button>
+ <button class="btn pink" onclick="registerPage()">🆕 NEW USER</button>
+ <button class="btn dark" onclick="qrPage()">▣ QR LOGIN</button>
+ </div></div></div>`
+}
+function loginPage(){
+ $("app").innerHTML=`<div class="center screen"><div class="card authbox">
+ <h2>Account Login</h2>
+ <div class=field><label>Name</label><input class=input id=name></div>
+ <div class=field><label>Serial Number</label><input class=input id=serial placeholder="1CSE02"></div>
+ <div class=field><label>Password, if you enabled one</label><input class=input id=password type=password></div>
+ <button class=btn onclick=login()>LOGIN</button> <button class="btn dark" onclick=auth()>BACK</button>
+ </div></div>`
+}
+function login(){
+ let d=db(),name=$("name").value.trim(),serial=$("serial").value.trim().toUpperCase(),p=$("password").value;
+ let u=d.users.find(x=>x.serial===serial&&x.name.toLowerCase()===name.toLowerCase());
+ if(!u){toast("Name or serial number is incorrect.");return}
+ if(u.password&&u.password!==btoa(unescape(encodeURIComponent(p)))){toast("Password is incorrect.");return}
+ setCurrent(u.id);recordAttendance("MANUAL LOGIN",u.id);dashboard()
+}
+function registerPage(){
+ $("app").innerHTML=`<div class="center screen"><div class="card authbox">
+ <h2>Create New User</h2><div class="grid two">
+ <div class=field><label>Name</label><input class=input id=name></div>
+ <div class=field><label>Owner-issued Serial Number</label><input class=input id=serial></div>
+ <div class=field><label>Role</label><select class=input id=role><option>STUDENT</option><option>PARENT</option><option>MANAGEMENT</option></select></div>
+ <div class=field><label>Year</label><input class=input id=year placeholder="1"></div>
+ <div class=field><label>DOB (DD-MM-YYYY)</label><input class=input id=dob placeholder="31-12-2010"></div>
+ </div><p class=muted>Your browser only receives information you enter.</p>
+ <button class=btn onclick=register()>CREATE ACCOUNT</button> <button class="btn dark" onclick=auth()>BACK</button>
+ </div></div>`
+}
+function register(){
+ let d=db(),u={name:$("name").value.trim(),serial:$("serial").value.trim().toUpperCase(),role:$("role").value,year:$("year").value.trim(),dob:$("dob").value.trim(),password:null,chatPin:null,qrToken:(crypto.randomUUID?.()||Math.random().toString(36).slice(2)),projects:[]};
+ if(!u.name||!u.serial){toast("Name and serial are required.");return}
+ if(d.users.some(x=>x.serial===u.serial)){toast("Serial already exists.");return}
+ u.id=Math.max(...d.users.map(x=>x.id),0)+1;d.users.push(u);save(d);setCurrent(u.id);recordAttendance("REGISTRATION",u.id);dashboard()
+}
+
+function dashboard(){
+ let u=getUser(),d=db();
+ let unread=d.messages.filter(m=>m.to===u.id&&!m.read).length;
+ let projects=(u.projects||[]).length;
+ let att=d.attendance.filter(a=>a.userId===u.id).length;
+ $("app").innerHTML=`<div class=screen><div class=wrap>
+ <div class=top><b class=brand>🎓 SNPSU PROJECT</b><input class="input search" id=search placeholder="Search people by name or serial" oninput=searchPeople(this.value)><button class="btn dark userBtn" onclick=profile()><span class="avatarMini">${initials(u.name)}</span>User Details</button><button class="btn red" onclick=logout()>Logout</button></div>
+ <h1>Welcome, ${esc(u.name)} 👋</h1>
+ <div class=stats>
+  <div class="card stat" onclick=chat()><span>PRIVATE MESSAGES</span><b>${unread}</b><small>Click to open Messages</small></div>
+  <div class="card stat" onclick=projects()><span>MY PROJECTS</span><b>${projects}</b><small>Click to open Projects</small></div>
+  <div class="card stat" onclick=attendance()><span>ATTENDANCE / LOGINS</span><b>${att}</b><small>Click to open history</small></div>
+ </div>
+ <div class="card section"><h2>Quick Actions</h2>
+ <button class=btn onclick=projects()>➕ Add Project</button>
+ <button class="btn pink" onclick=personalQR()>▣ Personal QR</button>
+ <button class="btn dark" onclick=attendance()>📋 Attendance</button>
+ <button class="btn dark" onclick=chat()>💬 Messages</button>
+ <button class="btn dark userBtn" onclick=profile()><span class="avatarMini">${initials(u.name)}</span>User Details</button>
+ <button class="btn dark" onclick=attendanceScanner()>📷 QR Attendance</button>
+ <div id=results></div></div>
+ </div></div>`
+}
+function searchPeople(q){
+ q=q.trim().toLowerCase();if(!q){$("results").innerHTML="";return}
+ let d=db(),me=getUser(),a=d.users.filter(u=>u.id!==me.id&&(u.name.toLowerCase().includes(q)||u.serial.toLowerCase().includes(q)));
+ $("results").innerHTML=`<h3>People</h3><div class=list>${a.map(u=>`<div class=item><b>${esc(u.name)}</b> <span class=pill>${esc(u.serial)}</span> <button class=btn onclick='startChat(${u.id})'>Chat</button></div>`).join("")||"<p class=muted>No matching users.</p>"}</div>`
+}
+
+function profile(){
+ let u=getUser();
+ $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox"><div class="profileHead"><div class="avatarBig">${initials(u.name)}</div><div><h2>User Details</h2><p class=muted>${esc(u.name)}</p></div></div>
+ <p><b>Name:</b> ${esc(u.name)}</p><p><b>Serial:</b> ${esc(u.serial)}</p><p><b>Role:</b> ${esc(u.role)}</p><p><b>Year:</b> ${esc(u.year)}</p><p><b>DOB:</b> ${esc(u.dob||"Not set")}</p>
+ <hr><h3>Account Password</h3><p class=muted>Any length, but must contain lowercase + number + special symbol.</p>
+ <input class=input id=np type=password placeholder="New password"><input class=input id=cp type=password placeholder="Confirm password"><button class=btn onclick=setPassword()>Save Password</button>
+ <hr><h3>Separate Chat Lock</h3><p class=muted>Choose your own exact 4 digits. Nothing is preset.</p>
+ <input class=input id=pin type=password inputmode=numeric maxlength=4 placeholder="4 digits"><input class=input id=cpin type=password inputmode=numeric maxlength=4 placeholder="Confirm 4 digits"><button class="btn pink" onclick=setPin()>Save Chat Lock</button>
+ <hr><button class="btn dark" onclick=closeModal()>Close</button></div></div>`
+}
+function closeModal(){let m=$("modal");if(m)m.remove()}
+function setPassword(){
+ let p=$("np").value,c=$("cp").value,u=getUser(),d=db();
+ if(p!==c||!passwordOK(p)){toast("Password must match and contain lowercase + number + special symbol.");return}
+ u.password=btoa(unescape(encodeURIComponent(p)));save(d);toast("Password saved.");closeModal()
+}
+function setPin(){
+ let p=$("pin").value,c=$("cpin").value,u=getUser(),d=db();
+ if(!pinOK(p)||p!==c){toast("Chat Lock must be exactly 4 matching digits.");return}
+ u.chatPin=p;save(d);toast("Chat Lock saved.");closeModal()
+}
+
+function personalQR(){
+ let u=getUser(),payload=JSON.stringify({type:"SNPSU_LOGIN",serial:u.serial,qrToken:u.qrToken});
+ let url="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="+encodeURIComponent(payload);
+ $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox" style=text-align:center>
+ <h2>🔐 Personal QR</h2><div class=qrbox><img src="${url}" width=300 height=300 alt="QR"></div>
+ <p class=muted>Your QR is a private login credential. Download/share only when you choose.</p>
+ <a class=btn href="${url}" target=_blank download="SNPSU-${esc(u.serial)}-QR.png">DOWNLOAD QR</a>
+ <button class="btn dark" onclick=closeModal()>Close</button></div></div>`
+}
+
+function projects(){
+ let u=getUser(),p=u.projects||[];
+ $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox"><h2>📁 My Projects</h2>
+ <div class=field><label>Project Title</label><input class=input id=ptitle></div>
+ <div class=field><label>Description</label><textarea class=input id=pdesc></textarea></div>
+ <div class=field><label>Select file — the browser file picker asks you to choose it</label><input class=input id=pfile type=file></div>
+ <button class=btn onclick=addProject()>SAVE PROJECT</button><hr>
+ <div class=list>${p.map((x,i)=>`<div class=item><b>${esc(x.title)}</b><div class=muted>${esc(x.fileName||"No file")} • ${esc(x.time)}</div><p>${esc(x.description)}</p>${x.data?`<button class="btn dark" onclick='downloadProject(${i})'>Download</button>`:""}</div>`).join("")||"<p class=muted>No projects yet.</p>"}</div>
+ <br><button class="btn dark" onclick=closeModal()>Close</button></div></div>`
+}
+function addProject(){
+ let f=$("pfile").files[0],u=getUser(),d=db();
+ if(!f){toast("Choose a file first.");return}
+ if(f.size>20*1024*1024){toast("For this browser-only version, use a file under 20 MB.");return}
+ let r=new FileReader();
+ r.onload=()=>{u.projects=u.projects||[];u.projects.unshift({title:$("ptitle").value.trim()||f.name,description:$("pdesc").value.trim(),fileName:f.name,type:f.type,data:r.result,time:new Date().toLocaleString()});save(d);toast("Project saved.");projects()}
+ r.readAsDataURL(f)
+}
+function downloadProject(i){
+ let p=getUser().projects[i],a=document.createElement("a");a.href=p.data;a.download=p.fileName;a.click()
+}
+
+function attendance(){
+ let u=getUser(),a=db().attendance.filter(x=>x.userId===u.id);
+ $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox"><h2>📋 Attendance / Login History</h2><div class=list>${a.map(x=>`<div class=item><b>${esc(x.method)}</b><div class=muted>${esc(x.time)}</div></div>`).join("")||"<p>No history.</p>"}</div><br><button class="btn dark" onclick=closeModal()>Close</button></div></div>`
+}
+
+function chat(){
+ let u=getUser();
+ if(!u || !u.chatPin){
+  $("app").insertAdjacentHTML("beforeend",`<div class=modal id=chatSetup><div class="card modalbox"><h2>🔒 Create your Chat Lock</h2><p class=muted>First use requires your own 4-digit Chat Lock. No code is preset.</p><input class=input id=fp type=password inputmode=numeric maxlength=4 placeholder="4 digits"><input class=input id=fpc type=password inputmode=numeric maxlength=4 placeholder="Confirm 4 digits"><br><button class="btn pink" onclick=createPin()>CREATE CHAT LOCK</button> <button class="btn dark" onclick=closeChatSetup()>Cancel</button></div></div>`);
+  return;
+ }
+ $("app").insertAdjacentHTML("beforeend",`<div class=modal id=chatLock><div class="card modalbox"><h2>🔒 Chat Locked</h2><p class=muted>Enter your separate 4-digit Chat Lock.</p><input class=input id=unlock type=password inputmode=numeric maxlength=4 placeholder="4 digits"><br><button class=btn onclick=unlockChat()>UNLOCK CHAT</button> <button class="btn dark" onclick=closeChatLock()>Cancel</button></div></div>`);
+}
+function closeChatSetup(){let x=$("chatSetup");if(x)x.remove()}
+function closeChatLock(){let x=$("chatLock");if(x)x.remove()}
+function createPin(){
+ let p=$("fp").value,c=$("fpc").value;
+ if(!pinOK(p)||p!==c){toast("Enter any 4 matching digits.");return}
+ let d=db(),u=getUser();u.chatPin=p;save(d);
+ closeChatSetup();openChatDrawer();
+}
+function unlockChat(){
+ let u=getUser(),entered=$("unlock").value;
+ if(entered!==u.chatPin){toast("Chat Lock does not match.");return}
+ closeChatLock();openChatDrawer();
+}
+function openChatDrawer(){
+ if($("drawer"))return;
+ $("app").insertAdjacentHTML("beforeend",`<div class=drawer id=drawer><div class=drawerhead><div class=top><b>💬 Private Messages</b><button class="btn dark" onclick=closeDrawer()>✕</button></div><button class=btn onclick=addFriend()>＋ Add Friend</button></div><div class=chatbody><div class=chatlist id=chatlist></div><div class=chatview><div class=messages id=messages><p class=muted>Select a conversation.</p></div><div class=compose><input class=input id=msg placeholder="Write a message..." onkeydown="if(event.key==='Enter')sendMsg()"><button class=btn onclick=sendMsg()>Send</button></div></div></div></div>`);
+ renderChats();
+}
+function closeDrawer(){let x=$("drawer");if(x)x.remove();state.activeFriend=null}
+function friendMessages(friendId){
+ let u=getUser();return db().messages.filter(m=>(m.from===u.id&&m.to===friendId)||(m.from===friendId&&m.to===u.id))
+}
+function renderChats(){
+ let d=db(),u=getUser(),ids=[...new Set(d.messages.flatMap(m=>m.from===u.id?[m.to]:m.to===u.id?[m.from]:[]))];
+ $("chatlist").innerHTML=ids.map(id=>{let f=d.users.find(x=>x.id===id),ms=friendMessages(id),last=ms.at(-1);return `<div class=item onclick="openConversation(${id})"><b>${esc(f?.name||"Unknown")}</b><div class=muted>${esc(f?.serial||"")}</div><small>${esc(last?.body||"No messages yet")}</small></div>`}).join("")||"<p class=muted>No chats yet.<br>Use Add Friend.</p>"
+}
+function addFriend(){
+ $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox"><h2>Start a Private Chat</h2><input class=input id=friendName placeholder="Friend name"><input class=input id=friendSerial placeholder="Friend serial"><button class=btn onclick=beginChat()>START CHAT</button> <button class="btn dark" onclick=closeModal()>Cancel</button></div></div>`
+}
+function beginChat(){
+ let d=db(),u=getUser(),f=d.users.find(x=>x.id!==u.id&&x.serial.toUpperCase()===$("friendSerial").value.trim().toUpperCase()&&x.name.toLowerCase()===$("friendName").value.trim().toLowerCase());
+ if(!f){toast("Friend name and serial do not match.");return}closeModal();renderChats();openConversation(f.id)
+}
+function startChat(id){
+ let u=getUser();
+ if(!u.chatPin){chat();toast("Create your Chat Lock first.");return}
+ $("app").insertAdjacentHTML("beforeend",`<div class=modal id=chatLock><div class="card modalbox"><h2>🔒 Chat Locked</h2><p class=muted>Enter your 4-digit Chat Lock.</p><input class=input id=unlock type=password inputmode=numeric maxlength=4 placeholder="4 digits"><br><button class=btn onclick="unlockAndOpen(${id})">UNLOCK CHAT</button></div></div>`);
+}
+function unlockAndOpen(id){
+ let u=getUser();
+ if($("unlock").value!==u.chatPin){toast("Chat Lock does not match.");return}
+ closeChatLock();openChatDrawer();openConversation(id);
+}
+function openConversation(id){
+ state.activeFriend=id;let d=db(),u=getUser();
+ d.messages.filter(m=>m.from===id&&m.to===u.id).forEach(m=>m.read=true);save(d);
+ let f=d.users.find(x=>x.id===id);$("messages").innerHTML=friendMessages(id).map(m=>`<div class="bubble ${m.from===u.id?"mine":""}"><small>${esc(m.from===u.id?"You":f.name)}</small><div>${esc(m.body)}</div></div>`).join("")||"<p class=muted>No messages yet.</p>";$("messages").scrollTop=$("messages").scrollHeight;dashboardUnreadRefresh()
+}
+function sendMsg(){
+ if(!state.activeFriend){toast("Select a conversation.");return}
+ let text=$("msg").value.trim();if(!text)return;let d=db(),u=getUser();
+ d.messages.push({id:Date.now(),from:u.id,to:state.activeFriend,body:text,read:false,time:new Date().toLocaleString()});save(d);$("msg").value="";openConversation(state.activeFriend);renderChats()
+}
+function dashboardUnreadRefresh(){/* dashboard is refreshed when user closes chat */}
+function logout(){let d=db();d.current=null;save(d);state.user=null;welcome()}
+
+function qrPage(){
+ $("app").innerHTML=`<div class="center screen"><div class="card authbox"><h2>▣ QR Login</h2><p class=muted>Press Start Camera. Your browser will ask for camera permission.</p><video id=video class=camera autoplay playsinline></video><canvas id=canvas class=hidden></canvas><p id=scanStatus class=muted></p><button class=btn onclick=startCamera()>START CAMERA</button> <button class="btn dark" onclick=auth()>BACK</button><hr><p class=muted>Manual QR data is also accepted below for testing.</p><textarea class=input id=manualQR placeholder='Paste the QR JSON here'></textarea><button class=btn onclick=manualQR()>LOGIN WITH QR DATA</button></div></div>`
+}
+async function startCamera(){
+ try{
+  state.camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  $("video").srcObject=state.camera;$("scanStatus").textContent="Camera active. Point it at your SNPSU QR.";
+  state.scanTimer=setInterval(scanCamera,500)
+ }catch(e){$("scanStatus").textContent="Camera permission was not granted or camera is unavailable."}
+}
+function stopCamera(){if(state.scanTimer)clearInterval(state.scanTimer);if(state.camera)state.camera.getTracks().forEach(t=>t.stop());state.camera=null}
+async function scanCamera(){
+ let v=$("video"),c=$("canvas");if(!v.videoWidth||!("BarcodeDetector" in window)){return}
+ c.width=v.videoWidth;c.height=v.videoHeight;c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+ try{let d=new BarcodeDetector({formats:["qr_code"]}),r=await d.detect(c);if(r[0]){stopCamera();manualQRValue(r[0].rawValue)}}catch{}
+}
+function manualQR(){manualQRValue($("manualQR").value)}
+function manualQRValue(raw){
+ try{let p=JSON.parse(raw),d=db(),u=d.users.find(x=>x.serial===p.serial&&x.qrToken===p.qrToken);if(!u){toast("QR credential is invalid.");return}setCurrent(u.id);recordAttendance("QR LOGIN",u.id);dashboard()}catch{toast("Invalid QR data.")}
+}
+function attendanceScanner(){
+ $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox"><h2>📷 QR Attendance</h2><p class=muted>Press Start Camera to request permission.</p><video id=av class=camera autoplay playsinline></video><canvas id=ac class=hidden></canvas><p id=ast class=muted></p><button class=btn onclick=startAttendanceCamera()>START CAMERA</button> <button class="btn dark" onclick=closeModal()>Close</button></div></div>`
+}
+async function startAttendanceCamera(){
+ try{
+  state.camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});$("av").srcObject=state.camera;state.scanTimer=setInterval(async()=>{
+   let v=$("av"),c=$("ac");if(!v.videoWidth||!("BarcodeDetector" in window)){$("ast").textContent="BarcodeDetector is not available in this browser.";return}
+   c.width=v.videoWidth;c.height=v.videoHeight;c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+   try{let r=await new BarcodeDetector({formats:["qr_code"]}).detect(c);if(r[0]){stopCamera();let p=JSON.parse(r[0].rawValue),d=db(),u=d.users.find(x=>x.serial===p.serial&&x.qrToken===p.qrToken);if(!u){$("ast").textContent="Invalid SNPSU QR.";return}recordAttendance("QR ATTENDANCE",u.id);$("ast").textContent="Attendance recorded for "+u.name;toast("Attendance recorded")}}catch{}
+  },500)
+ }catch{$("ast").textContent="Camera permission was not granted."}
+}
+
+/* Fix dashboard after closing chat by keeping it available */
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();closeDrawer();stopCamera()}})
+let initial=db();if(initial.current){state.user=initial.users.find(u=>u.id===initial.current);dashboard()}else welcome();
+</script>
+</body>
+</html>
