@@ -13,6 +13,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 <div id="app"></div>
 <div id="toast" class="modal hidden" style="background:transparent;place-items:end center;padding-bottom:25px"><div class="card" style="padding:12px 18px" id="toastText"></div></div>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 /* ============================================================
    SNPSU MERGED FREE VERSION
@@ -275,9 +276,11 @@ async function startCamera(){
 }
 function stopCamera(){if(state.scanTimer)clearInterval(state.scanTimer);if(state.camera)state.camera.getTracks().forEach(t=>t.stop());state.camera=null}
 async function scanCamera(){
- let v=$("video"),c=$("canvas");if(!v.videoWidth||!("BarcodeDetector" in window)){return}
- c.width=v.videoWidth;c.height=v.videoHeight;c.getContext("2d").drawImage(v,0,0,c.width,c.height);
- try{let d=new BarcodeDetector({formats:["qr_code"]}),r=await d.detect(c);if(r[0]){stopCamera();manualQRValue(r[0].rawValue)}}catch{}
+ let v=$("video"),c=$("canvas");if(!v||!v.videoWidth)return;
+ c.width=v.videoWidth;c.height=v.videoHeight;
+ let ctx=c.getContext("2d",{willReadFrequently:true});ctx.drawImage(v,0,0,c.width,c.height);
+ try{if("BarcodeDetector" in window){let r=await new BarcodeDetector({formats:["qr_code"]}).detect(c);if(r[0]){stopCamera();manualQRValue(r[0].rawValue);return}}}catch(e){}
+ try{if(window.jsQR){let img=ctx.getImageData(0,0,c.width,c.height),r=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});if(r&&r.data){stopCamera();manualQRValue(r.data)}}}catch(e){}
 }
 function manualQR(){manualQRValue($("manualQR").value)}
 function manualQRValue(raw){
@@ -288,12 +291,16 @@ function attendanceScanner(){
 }
 async function startAttendanceCamera(){
  try{
-  state.camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});$("av").srcObject=state.camera;state.scanTimer=setInterval(async()=>{
-   let v=$("av"),c=$("ac");if(!v.videoWidth||!("BarcodeDetector" in window)){$("ast").textContent="BarcodeDetector is not available in this browser.";return}
-   c.width=v.videoWidth;c.height=v.videoHeight;c.getContext("2d").drawImage(v,0,0,c.width,c.height);
-   try{let r=await new BarcodeDetector({formats:["qr_code"]}).detect(c);if(r[0]){stopCamera();let p=JSON.parse(r[0].rawValue),d=db(),u=d.users.find(x=>x.serial===p.serial&&x.qrToken===p.qrToken);if(!u){$("ast").textContent="Invalid SNPSU QR.";return}recordAttendance("QR ATTENDANCE",u.id);$("ast").textContent="Attendance recorded for "+u.name;toast("Attendance recorded")}}catch{}
-  },500)
- }catch{$("ast").textContent="Camera permission was not granted."}
+  state.camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}});
+  $("av").srcObject=state.camera;$("ast").textContent="Camera active. Hold the SNPSU QR clearly inside the frame.";
+  state.scanTimer=setInterval(async()=>{
+   let v=$("av"),c=$("ac");if(!v.videoWidth)return;
+   c.width=v.videoWidth;c.height=v.videoHeight;let ctx=c.getContext("2d",{willReadFrequently:true});ctx.drawImage(v,0,0,c.width,c.height);let raw=null;
+   try{if("BarcodeDetector" in window){let r=await new BarcodeDetector({formats:["qr_code"]}).detect(c);if(r[0])raw=r[0].rawValue}}catch(e){}
+   if(!raw)try{if(window.jsQR){let img=ctx.getImageData(0,0,c.width,c.height),r=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});if(r)raw=r.data}}catch(e){}
+   if(raw)try{let p=JSON.parse(raw),d=db(),u=d.users.find(x=>x.serial===p.serial&&x.qrToken===p.qrToken);if(!u){$("ast").textContent="Invalid SNPSU QR.";return}stopCamera();recordAttendance("QR ATTENDANCE",u.id);$("ast").textContent="Attendance recorded for "+u.name;toast("Attendance recorded")}catch(e){$("ast").textContent="That QR is not an SNPSU QR."}
+  },350)
+ }catch(e){$("ast").textContent="Camera permission was not granted or camera is unavailable."}
 }
 
 /* Fix dashboard after closing chat by keeping it available */
