@@ -38,13 +38,24 @@ const seed=[
  {name:"RANJAN",serial:"1CSE05",role:"STUDENT",year:"1"}
 ];
 
+function portableQRToken(serial){
+ return "SNPSU-" + String(serial||"").toUpperCase() + "-QR";
+}
 function db(){
  let x=localStorage.getItem(KEY);
  if(!x){
-  x={users:seed.map((u,i)=>({...u,id:i+1,dob:"",password:null,chatPin:null,qrToken:crypto.randomUUID?.()||Math.random().toString(36).slice(2),projects:[]})),
+  x={users:seed.map((u,i)=>({...u,id:i+1,dob:"",password:null,chatPin:null,qrToken:portableQRToken(u.serial),projects:[]})),
      messages:[],attendance:[],current:null};
   save(x);
  }
+ let d=JSON.parse(localStorage.getItem(KEY));
+ let changed=false;
+ d.users=(d.users||[]).map(u=>{
+   let wanted=portableQRToken(u.serial);
+   if(u.qrToken!==wanted){u.qrToken=wanted;changed=true}
+   return u;
+ });
+ if(changed) save(d);
  return JSON.parse(localStorage.getItem(KEY));
 }
 function save(x){localStorage.setItem(KEY,JSON.stringify(x))}
@@ -165,9 +176,9 @@ function setPin(){
 
 function personalQR(){
  let u=getUser(),payload=JSON.stringify({type:"SNPSU_LOGIN",serial:u.serial,qrToken:u.qrToken});
- let url="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="+encodeURIComponent(payload);
+ let url="https://api.qrserver.com/v1/create-qr-code/?size=420x420&data="+encodeURIComponent(payload);
  $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox" style=text-align:center>
- <h2>🔐 Personal QR</h2><div class=qrbox><img src="${url}" width=300 height=300 alt="QR"></div>
+ <h2>🔐 Personal QR</h2><div class=qrbox><img src="${url}" width=420 height=420 alt="SNPSU Personal QR"></div>
  <p class=muted>Your QR is a private login credential. Download/share only when you choose.</p>
  <a class=btn href="${url}" target=_blank download="SNPSU-${esc(u.serial)}-QR.png">DOWNLOAD QR</a>
  <button class="btn dark" onclick=closeModal()>Close</button></div></div>`
@@ -265,11 +276,16 @@ function dashboardUnreadRefresh(){/* dashboard is refreshed when user closes cha
 function logout(){let d=db();d.current=null;save(d);state.user=null;welcome()}
 
 function qrPage(){
- $("app").innerHTML=`<div class="center screen"><div class="card authbox"><h2>▣ QR Login</h2><p class=muted>Press Start Camera. Your browser will ask for camera permission.</p><video id=video class=camera autoplay playsinline></video><canvas id=canvas class=hidden></canvas><p id=scanStatus class=muted></p><button class=btn onclick=startCamera()>START CAMERA</button> <button class="btn dark" onclick=auth()>BACK</button><hr><p class=muted>Manual QR data is also accepted below for testing.</p><textarea class=input id=manualQR placeholder='Paste the QR JSON here'></textarea><button class=btn onclick=manualQR()>LOGIN WITH QR DATA</button></div></div>`
+ $("app").innerHTML=`<div class="center screen"><div class="card authbox"><h2>▣ QR Login</h2><p class=muted>Press Start Camera. Your browser will ask for camera permission.</p><video id=video class=camera autoplay playsinline></video><canvas id=canvas class=hidden></canvas><p id=scanStatus class=muted></p><button class=btn onclick=startCamera()>START CAMERA</button> <button class="btn dark" onclick=auth()>BACK</button><hr><p class=muted><b>Scanning tips:</b> allow camera access, use HTTPS/GitHub Pages, keep the QR inside the frame, and use a bright screen.</p>
+<input id="qrImage" type="file" accept="image/*" capture="environment" class="input" onchange="scanQRImage(this.files[0])">
+<button class="btn dark" onclick="document.getElementById('qrImage').click()">🖼️ SCAN QR FROM IMAGE</button>
+<hr><p class=muted>Manual QR data is also accepted for testing.</p><textarea class=input id=manualQR placeholder='Paste the QR JSON here'></textarea><button class=btn onclick=manualQR()>LOGIN WITH QR DATA</button></div></div>`
 }
 async function startCamera(){
  try{
-  state.camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  if(!window.isSecureContext && location.hostname!=="localhost"){throw new Error("HTTPS required")}
+   if(!navigator.mediaDevices?.getUserMedia){throw new Error("Camera API unavailable")}
+   state.camera=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1280,max:1920},height:{ideal:720,max:1080}}});
   $("video").srcObject=state.camera;$("scanStatus").textContent="Camera active. Point it at your SNPSU QR.";
   state.scanTimer=setInterval(scanCamera,500)
  }catch(e){$("scanStatus").textContent="Camera permission was not granted or camera is unavailable."}
@@ -282,9 +298,25 @@ async function scanCamera(){
  try{if("BarcodeDetector" in window){let r=await new BarcodeDetector({formats:["qr_code"]}).detect(c);if(r[0]){stopCamera();manualQRValue(r[0].rawValue);return}}}catch(e){}
  try{if(window.jsQR){let img=ctx.getImageData(0,0,c.width,c.height),r=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});if(r&&r.data){stopCamera();manualQRValue(r.data)}}}catch(e){}
 }
+async function scanQRImage(file){
+ if(!file){return}
+ if(!window.jsQR){toast("QR image scanner is still loading. Please try again.");return}
+ try{
+   const img=new Image();
+   img.onload=()=>{
+     const c=document.createElement("canvas"),ctx=c.getContext("2d",{willReadFrequently:true});
+     c.width=img.naturalWidth;c.height=img.naturalHeight;ctx.drawImage(img,0,0);
+     const r=jsQR(ctx.getImageData(0,0,c.width,c.height).data,c.width,c.height,{inversionAttempts:"attemptBoth"});
+     if(r&&r.data){manualQRValue(r.data)}else{toast("Could not find a QR code in that image. Use a clear, uncropped QR image.")}
+     URL.revokeObjectURL(img.src);
+   };
+   img.onerror=()=>toast("Could not read that image.");
+   img.src=URL.createObjectURL(file);
+ }catch(e){toast("Could not scan the QR image.")}
+}
 function manualQR(){manualQRValue($("manualQR").value)}
 function manualQRValue(raw){
- try{let p=JSON.parse(raw),d=db(),u=d.users.find(x=>x.serial===p.serial&&x.qrToken===p.qrToken);if(!u){toast("QR credential is invalid.");return}setCurrent(u.id);recordAttendance("QR LOGIN",u.id);dashboard()}catch{toast("Invalid QR data.")}
+ try{let p=JSON.parse(raw),d=db(),serial=String(p.serial||"").toUpperCase(),u=d.users.find(x=>x.serial===serial&&p.type==="SNPSU_LOGIN"&&p.qrToken===portableQRToken(serial));if(!u){toast("Invalid SNPSU QR. Generate a fresh Personal QR from User Details.");return}setCurrent(u.id);recordAttendance("QR LOGIN",u.id);dashboard()}catch{toast("Invalid QR data.")}
 }
 function attendanceScanner(){
  $("app").innerHTML+=`<div class=modal id=modal><div class="card modalbox"><h2>📷 QR Attendance</h2><p class=muted>Press Start Camera to request permission.</p><video id=av class=camera autoplay playsinline></video><canvas id=ac class=hidden></canvas><p id=ast class=muted></p><button class=btn onclick=startAttendanceCamera()>START CAMERA</button> <button class="btn dark" onclick=closeModal()>Close</button></div></div>`
@@ -298,7 +330,7 @@ async function startAttendanceCamera(){
    c.width=v.videoWidth;c.height=v.videoHeight;let ctx=c.getContext("2d",{willReadFrequently:true});ctx.drawImage(v,0,0,c.width,c.height);let raw=null;
    try{if("BarcodeDetector" in window){let r=await new BarcodeDetector({formats:["qr_code"]}).detect(c);if(r[0])raw=r[0].rawValue}}catch(e){}
    if(!raw)try{if(window.jsQR){let img=ctx.getImageData(0,0,c.width,c.height),r=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});if(r)raw=r.data}}catch(e){}
-   if(raw)try{let p=JSON.parse(raw),d=db(),u=d.users.find(x=>x.serial===p.serial&&x.qrToken===p.qrToken);if(!u){$("ast").textContent="Invalid SNPSU QR.";return}stopCamera();recordAttendance("QR ATTENDANCE",u.id);$("ast").textContent="Attendance recorded for "+u.name;toast("Attendance recorded")}catch(e){$("ast").textContent="That QR is not an SNPSU QR."}
+   if(raw)try{let p=JSON.parse(raw),d=db(),serial=String(p.serial||"").toUpperCase(),u=d.users.find(x=>x.serial===serial&&p.type==="SNPSU_LOGIN"&&p.qrToken===portableQRToken(serial));if(!u){$("ast").textContent="Invalid SNPSU QR. Generate a fresh Personal QR.";return}stopCamera();recordAttendance("QR ATTENDANCE",u.id);$("ast").textContent="Attendance recorded for "+u.name;toast("Attendance recorded")}catch(e){$("ast").textContent="That QR is not an SNPSU QR."}
   },350)
  }catch(e){$("ast").textContent="Camera permission was not granted or camera is unavailable."}
 }
